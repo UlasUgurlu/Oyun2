@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Orbit Tide",
+    "slug": "orbit-tide",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-mark.png",
+      "imageWidth": 180,
+      "backgroundColor": "#080b16",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "com.ulasugurlu.orbittide",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#080b16"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.ulasugurlu.orbittide",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-mark.png",
+          "imageWidth": 180,
+          "backgroundColor": "#080b16"
+        }
+      ]
+    ],
+    "icon": "./assets/icon.png"
+  }
+}
