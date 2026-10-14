@@ -1,4 +1,14 @@
-# Orbit Tide 1.2 — Doğrulama raporu
+# Orbit Tide — Doğrulama raporu
+
+## Android 1.2.1 açılış düzeltmesi
+
+1.2.0'ın Android 15 üzerinde başlatılması kapanmayla sonuçlandı. ARM64 APK'nın x86_64 emülatöründeki çeviri köprüsü için yerel kütüphane çıkarımı etkinleştirildiğinde asıl JavaScript hatası görüldü: `[runtime not ready]: TypeError: undefined is not a function`.
+
+Hermes kayıtları yeniden oluşturulan kaynak haritasıyla `three/build/three.cjs:12` satırına eşlendi. Bu giriş modülü Node.js'e özgü `process.emitWarning` çağırıyordu. Metro çözümleyicisi, React Three Fiber ve oyunun Three içe aktarımlarını `three.module.js` üzerinden ortak modüle yönlendiriyor. Yerel Android dışa aktarımının kaynak haritasında `three.cjs` bulunmadığı doğrulandı.
+
+1.2.1 yayımlama akışı imza, JavaScript paketi, temel ARM64 kütüphaneleri ve kaynak haritasını doğrular. Ardından API 35 Google APIs emülatöründe aynı ARM64 APK ile eski sürüm üzerine kurulum, hazır ana ekran, dil seçimi, oyun başlatma, duraklatma, arka plandan dönme ve yeniden açılış kontrollerini çalıştırır. Test geçmeden sürüm yayımlanmaz. Günlükler ve ekran görüntüleri iş akışına eklenir. Bu emülatör doğrulaması fiziksel Samsung cihaz testi değildir.
+
+## 1.2.0 web ve oyun motoru kontrolleri
 
 Tarih: 14 Ekim 2026.
 

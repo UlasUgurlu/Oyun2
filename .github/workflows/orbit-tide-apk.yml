@@ -1,4 +1,4 @@
-name: Build Orbit Tide APK
+name: Build and verify Orbit Tide APK
 
 on:
   push:
@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 60
     env:
       CI: '1'
+      NODE_ENV: production
       NODE_OPTIONS: --max-old-space-size=3072
     steps:
       - name: Check out Orbit Tide
@@ -27,10 +28,13 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import base64, gzip
+          import base64, gzip, json
           chunks = sorted(Path('.build/lock').glob('*.b64'))
           assert chunks, 'Dependency lock missing'
-          Path('package-lock.json').write_bytes(gzip.decompress(base64.b64decode(''.join(p.read_text() for p in chunks))))
+          lock = json.loads(gzip.decompress(base64.b64decode(''.join(p.read_text() for p in chunks))))
+          version = json.loads(Path('package.json').read_text())['version']
+          lock['version'] = lock['packages']['']['version'] = version
+          Path('package-lock.json').write_text(json.dumps(lock, indent=2) + '\n')
           PY
 
       - name: Set up Node.js
@@ -87,6 +91,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('android/gradle.properties')
+          assert 'expo.useLegacyPackaging=true' in p.read_text(), 'Native library extraction must be enabled'
           settings = p.read_text().replace('org.gradle.parallel=true', 'org.gradle.parallel=false')
           settings += '\nkotlin.compiler.execution.strategy=in-process\n'
           p.write_text(settings)
@@ -101,34 +106,75 @@ jobs:
       - name: Verify APK, embedded game and signature
         run: |
           mkdir -p delivery
-          cp android/app/build/outputs/apk/release/app-release.apk delivery/Orbit-Tide-1.2.0.apk
-          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose delivery/Orbit-Tide-1.2.0.apk
-          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt" dump badging delivery/Orbit-Tide-1.2.0.apk > delivery/apk-info.txt
+          cp android/app/build/outputs/apk/release/app-release.apk delivery/Orbit-Tide-1.2.1.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify --verbose delivery/Orbit-Tide-1.2.1.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt" dump badging delivery/Orbit-Tide-1.2.1.apk > delivery/apk-info.txt
           python3 - <<'PY'
           from pathlib import Path
           import hashlib, json, os, zipfile
-          apk = Path('delivery/Orbit-Tide-1.2.0.apk')
+          apk = Path('delivery/Orbit-Tide-1.2.1.apk')
           with zipfile.ZipFile(apk) as archive:
               names = archive.namelist()
               assert archive.testzip() is None
               assert 'assets/index.android.bundle' in names, 'Game JavaScript bundle missing'
-              assert any(n.startswith('lib/arm64-v8a/') for n in names), 'ARM64 native libraries missing'
+              for library in ['libreactnative.so', 'libhermesvm.so', 'libexpo-gl.so', 'libexpo-modules-core.so', 'libc++_shared.so', 'libappmodules.so', 'libjsi.so', 'libfbjni.so']:
+                  path = 'lib/arm64-v8a/' + library
+                  assert path in names, 'Required native library missing: ' + library
+                  assert archive.getinfo(path).compress_type == zipfile.ZIP_DEFLATED, 'Native libraries must be extracted at install time'
               assert not any(n.startswith('lib/x86') or n.startswith('lib/armeabi-v7a') for n in names)
           info = Path('delivery/apk-info.txt').read_text()
           assert "name='com.ulasugurlu.orbittide'" in info
-          assert "versionName='1.2.0'" in info
+          assert "versionName='1.2.1'" in info
           assert 'application-debuggable' not in info
+          assert "versionCode='2'" in info
+          source_map = json.loads(Path('android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map').read_text())
+          sources = source_map['sources']
+          assert any(s.endswith('/three/build/three.module.js') for s in sources), 'Three ESM entry missing'
+          assert not any(s.endswith('/three/build/three.cjs') for s in sources), 'Node-only Three entry would crash Hermes'
           digest = hashlib.sha256(apk.read_bytes()).hexdigest()
           Path('delivery/sha256.txt').write_text(digest + '  ' + apk.name + '\n')
-          Path('delivery/build-info.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'], 'version':'1.2.0', 'architecture':'arm64-v8a', 'variant':'release', 'sha256':digest}, indent=2))
+          Path('delivery/build-info.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'], 'version':'1.2.1', 'architecture':'arm64-v8a', 'variant':'release', 'sha256':digest}, indent=2))
           print('Signed release APK verified; game code is embedded.')
           PY
 
       - name: Upload installable Orbit Tide APK
         uses: actions/upload-artifact@v4
         with:
-          name: orbit-tide-apk
+          name: orbit-tide-1.2.1-apk
           path: delivery/
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download previous version for upgrade verification
+        run: |
+          mkdir -p previous
+          curl --fail --location --retry 2 --output previous/Orbit-Tide-1.2.0.apk https://github.com/UlasUgurlu/Oyun2/releases/download/v1.2.0/Orbit-Tide-1.2.0.apk
+          echo '3d8d61327214d3849ba5c82966fe81cee05b55fae48b9ef1a19959874efc8053  previous/Orbit-Tide-1.2.0.apk' | sha256sum -c
+
+      - name: Test release APK on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          ram-size: 2048M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: python scripts/android_smoke.py delivery/Orbit-Tide-1.2.1.apk previous/Orbit-Tide-1.2.0.apk
+
+      - name: Preserve Android test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-tide-1.2.1-android-test
+          path: smoke-evidence/
+          retention-days: 14
+

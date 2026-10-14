@@ -1,3 +1,10 @@
+# 1.2.1
+
+- Android açılışında Three.js CommonJS girişindeki `process.emitWarning` çağrısından kaynaklanan kapanma düzeltildi. Metro, renderer ve sahnenin bütün Three içe aktarımlarını ortak ESM modülüne yönlendiriyor.
+- Yerel Android kütüphaneleri kurulumda çıkarılıyor; uygulamanın seçili işlemci mimarisiyle yüklenmesi sağlanıyor.
+- Android sürüm kodu 2 yapıldı; 1.2.0 üzerine güncellenebiliyor.
+- APK yayımlama akışına Android 15 üzerinde gerçek uygulama başlatma ve arayüz kontrolü eklendi. Doğrulama geçmeden GitHub sürümü yayımlanmıyor.
+
 # 1.2.0
 
 ## Oyun

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Orbit Tide",
     "slug": "orbit-tide",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -14,6 +14,7 @@
     },
     "android": {
       "package": "com.ulasugurlu.orbittide",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#080b16"
@@ -24,6 +25,7 @@
       "supportsTablet": false
     },
     "plugins": [
+      "./plugins/withNativeLibraryPackaging",
       "expo-asset",
       [
         "expo-audio",
