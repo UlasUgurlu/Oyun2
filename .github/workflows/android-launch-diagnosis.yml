@@ -1,0 +1,78 @@
+name: Diagnose Android launch
+on:
+  push:
+    branches: [android-launch-diagnosis]
+    paths: [.github/workflows/android-launch-diagnosis.yml]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Get the APK delivered to the phone
+        uses: actions/download-artifact@v4
+        with:
+          name: orbit-tide-apk
+          path: delivery
+          run-id: 38587700847
+          github-token: ${{ github.token }}
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Write launch probe
+        run: |
+          mkdir -p diagnosis
+          cat > diagnose.py <<'PY'
+          import subprocess, time
+          from pathlib import Path
+          def adb(*args, check=False):
+              p = subprocess.run(['adb', *args], text=True, capture_output=True, timeout=90)
+              output = p.stdout + p.stderr
+              print(output, flush=True)
+              if check and p.returncode:
+                  raise RuntimeError('ADB command failed: ' + ' '.join(args))
+              return output
+          try:
+              adb('shell', 'getprop', 'ro.product.cpu.abilist')
+              adb('install', '-r', 'delivery/Orbit-Tide-1.2.0.apk', check=True)
+              adb('logcat', '-c')
+              adb('shell', 'am', 'start', '-W', '-n', 'com.ulasugurlu.orbittide/.MainActivity')
+              time.sleep(20)
+              pid = adb('shell', 'pidof', 'com.ulasugurlu.orbittide').strip()
+              Path('diagnosis/process.txt').write_text(pid)
+              adb('shell', 'uiautomator', 'dump', '/sdcard/window.xml')
+              adb('pull', '/sdcard/window.xml', 'diagnosis/window.xml')
+              image = subprocess.run(['adb', 'exec-out', 'screencap', '-p'], capture_output=True, timeout=30)
+              Path('diagnosis/screen.png').write_bytes(image.stdout)
+              if not pid:
+                  raise RuntimeError('App exited during startup')
+          finally:
+              p = subprocess.run(['adb', 'logcat', '-d', '-v', 'threadtime'], capture_output=True, text=True, timeout=30)
+              Path('diagnosis/logcat.txt').write_text(p.stdout + p.stderr)
+              lines = (p.stdout + p.stderr).splitlines()
+              for i,line in enumerate(lines):
+                  if any(key in line for key in ['FATAL EXCEPTION', 'ReactNativeJS', 'Fatal signal', 'JavascriptException', 'UnsatisfiedLinkError', 'Process: com.ulasugurlu.orbittide']):
+                      print('\n'.join(lines[max(0,i-1):i+18]))
+          PY
+      - name: Run delivered APK on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          ram-size: 2048M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: python diagnose.py
+      - name: Preserve Android launch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-launch-diagnosis
+          path: diagnosis/
+          retention-days: 7
