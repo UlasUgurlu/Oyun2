@@ -68,7 +68,7 @@ jobs:
 
       - name: Install exact app dependencies and test game
         run: |
-          npm ci --no-audit --no-fund
+          npm ci --include=dev --no-audit --no-fund
           npm run typecheck
           npm test
 
