@@ -111,4 +111,12 @@ victory=np.zeros(int(SR*1.6))
 for i,m in enumerate([76,79,83,88,91]):
  s=chime(hz(m),.75)*.8;pos=int(i*.14*SR);victory[pos:pos+len(s)]+=s
 write('victory',np.column_stack((victory,np.roll(victory,280))))
-print('Created original soundtrack + 11 sound effects in',OUT)
+# A short stereo warp for Phase and a lower incoming-rift warning.
+t=np.arange(int(SR*.48))/SR
+frequency=320+980*np.sin(np.pi*t/.48)**2
+phase_wave=np.sin(2*np.pi*np.cumsum(frequency)/SR)*np.sin(np.pi*t/.48)**2*.32
+write('phase',np.column_stack((phase_wave,np.roll(phase_wave,180))))
+t=np.arange(int(SR*.72))/SR
+rift_wave=(np.sin(2*np.pi*(135*t+90*t*t))+.3*np.sin(2*np.pi*540*t))*np.sin(np.pi*t/.72)**2*.23
+write('rift',np.column_stack((rift_wave,np.roll(rift_wave,420))))
+print('Created original soundtrack + 13 sound effects in',OUT)

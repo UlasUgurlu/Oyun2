@@ -1,3 +1,16 @@
+# 1.3.0
+
+- Menü yeniden tasarlandı: 3B sektör vitrini, mod kartları, çekirdek seçimi ve XP/seviye çubuğu.
+- Uzay sisi, enerji halkaları, daha parlak yıldızlar ve anomaliye göre değişen sahne renkleri eklendi. Efektler ortak geometriler ve sınırlı nesne havuzlarıyla çalışır; düşük kalitede sis kapatılır.
+- Anomali modu eklendi: Çifte Ateş hız ve puanı artırır, Ters Akış yaklaşma yönünü değiştirir, Çekim Alanı diğer yörüngeden kristal toplar. Olaylar önceden haber verilir; atlatıldığında bonus verilir.
+- Mor kapı ve kristal çiftleri yaklaşırken yörünge değiştirir; çarpışma noktasına ulaşmadan önce güvenli yörünge netleşir.
+- Faz sıçraması 1,25 saniyelik geçici koruma sağlar; bekleme süresinden sonra tekrar kullanılabilir. Kalkanı tüketmez.
+- Denge, Koruma ve Kaos çekirdekleri farklı puan, hız ve koruma tercihleri sunar. Seçimin etkisi menüde açıklanır.
+- Tur başına mini görev, tamamlanma bonusu, XP ve kalıcı seviye ilerlemesi eklendi. Eski rekorlar korunur; Anomali rekoru ayrıca kaydedilir.
+- Faz ve anomali uyarısı için iki özgün stereo efekt eklendi. Yeni metinler dört dile çevrildi.
+- Android sürüm kodu 3 yapıldı. Önceki açılış düzeltmesi ve aynı anahtarla güncelleme desteği korunur.
+- Test kapsamı 30 oyun/kayıt testine genişletildi; tarayıcıda gerçek 3B çizim, üç ekran boyutu ve normal girişlerle anomali döngüsü kontrolü eklendi.
+
 # 1.2.1
 
 - Android açılışında Three.js CommonJS girişindeki `process.emitWarning` çağrısından kaynaklanan kapanma düzeltildi. Metro, renderer ve sahnenin bütün Three içe aktarımlarını ortak ESM modülüne yönlendiriyor.

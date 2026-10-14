@@ -1,24 +1,23 @@
-# GitHub APK derlemesi
-
-Actions sekmesindeki **Build Orbit Tide APK** tamamlanınca **orbit-tide-apk** çıktısını indir. İçinde Android ARM64 için `Orbit-Tide-1.2.0.apk` bulunur. Oyun kodu APK içine gömülür.
-
-Bu depoda görsel ve sesler özgün üretim betiklerinden derleme sırasında oluşturulur. Bağımlılık kilidi `.build/lock` parçalarından aynen geri yüklenir.
-
-# Orbit Tide — Neon Odyssey · 1.2
+# Orbit Tide — Yarık Sezonu · 1.3
 
 React Native / Expo ile yazılmış, tek parmakla oynanan gerçek zamanlı 3B uzay oyunu. İç ve dış yörünge arasında geç, altın kristalleri topla ve pembe enerji kapılarından kaç.
 
 ## Bu sürümde
 
+- **Yeni menü ve sahne:** 3B sektör vitrini, uzay sisi, enerji halkaları, mod kartları, çekirdek seçimi ve XP/seviye çubuğu.
+- **Anomali:** önceden haber verilen hız/çift puan, ters akış ve çekim alanı olayları. Mor kapı çiftleri yaklaşırken yörünge değiştirir.
+- **Faz:** 1,25 saniyelik koruma; bekleme süresinden sonra yeniden kullanılabilir. Kalkanı tüketmez.
+- **Üç çekirdek:** Denge normal kuralları korur; Koruma kalkanla başlar ve daha az puan verir; Kaos hız ve puanı artırır.
+- **Mini görev ve XP:** her tur bir yan hedef, tamamlanma bonusu ve kalıcı seviye ilerlemesi.
 - **Nova:** kristaller ve yakın geçişlerle şarj olur. Etkinleştirildiğinde 5 saniye boyunca iki yörüngeden kristal çeker, puanı ikiye katlar ve tempoyu biraz artırır.
 - **Kalkan:** mavi kristal bir çarpışmadan korur; kullanıldıktan sonra kısa bir koruma süresi bırakır.
 - **Yakın geçiş:** kapıyı yakından ve güvenle geçmek +8 puan ve Nova şarjı verir.
-- **İki mod:** Klasik ve 60 saniyelik yarış; rekorları ayrı tutulur.
+- **Üç mod:** Anomali, Klasik ve 60 saniyelik yarış; rekorları ayrı tutulur.
 - **Dört dil:** Türkçe, English, Deutsch ve Español. Oyun ekranları, yardım, ayarlar ve erişilebilirlik etiketleri çevrildi.
 - **Üç renk evreni:** Violet, Aurora ve Solar.
 - **Yeni OT logosu:** uygulama simgesi, açılış görseli, şeffaf işaret ve vektör yazılı logo.
-- **11 özgün ses efekti + 32 saniyelik stereo müzik döngüsü.** Nova, kalkan ve bitiş için yeni sesler.
-- **İstatistikler:** iki modun rekorları, biten turlar, kristaller, en uzun seri, süre, Nova ve yakın geçiş sayıları.
+- **13 özgün ses efekti + 32 saniyelik stereo müzik döngüsü.** Faz ve anomali uyarısı için yeni sesler.
+- **İstatistikler:** üç modun rekorları, XP, görevler, atlatılan anomaliler, biten turlar, kristaller, en uzun seri, süre, Nova ve yakın geçiş sayıları.
 - **Eski kayıtların korunması:** önceki rekor ve ses tercihleri yeni kayıt yapısına aktarılır.
 
 ## Akıcılık için yapılanlar
@@ -58,10 +57,12 @@ npm run web
 - Kristali kaçırmak seriyi sıfırlar. Mavi kalkan kristali seriyi bozmaz.
 - Pembe kapıyla çarpışmak, kalkan yoksa turu bitirir. Nova kapılardan korumaz.
 - Nova göstergesi %100 olunca düğmeye bas. 5 saniye boyunca mıknatıs ve çift puan alırsın.
-- Web'de Space başlatır/yörünge değiştirir; N Nova'yı etkinleştirir; Escape duraklatır/devam eder. Düğmeler klavyeyle de kullanılabilir.
+- Web'de Space başlatır/yörünge değiştirir; N Nova'yı, X Faz'ı etkinleştirir; Escape duraklatır/devam eder. Düğmeler klavyeyle de kullanılabilir.
 - Ayarlar, dil, renk evreni ve rekorlar cihazda saklanır. Kayıt hatası oluşursa arayüz bildirir.
 
 ## Android APK
+
+Kaynak ve APK sürümleri `UlasUgurlu/Oyun2` deposunda tutulur. GitHub Actions imzalı ARM64 APK üretir, Three ESM girişini doğrular, Android 15 üzerinde açılış/kurulum testini çalıştırır ve kanıtları saklar. Başarılı testten sonra ayrı yayımlama işi APK'yı GitHub Releases üzerinden sunar: https://github.com/UlasUgurlu/Oyun2/releases.
 
 Bu arşiv kaynak projedir. `eas.json` içindeki `preview` profili APK üretmek için hazırdır. Expo hesabında proje yapılandırıldıktan sonra:
 
@@ -91,6 +92,8 @@ Testler sabit zaman adımı, kapı çarpışması, kaçırılan kristal, durakla
 - `src/hud.ts`: puan panelinin ayrı güncelleme deposu.
 - `src/preferences.ts`: ayarlar, istatistikler ve eski kayıt aktarımı.
 - `src/i18n.ts`: dört dilin metinleri.
+- `src/expansionI18n.ts`: Anomali, çekirdekler, Faz ve seviye metinleri.
+- `src/ui/HomeMenu.tsx`: menü kartları, seviye ve sahne katmanları.
 - `src/scene/OrbitWorld.tsx`: 3B modeller, toplu çizim ve parçacıklar.
 - `src/scene/Scene.native.tsx`: Android/iOS GL katmanı.
 - `src/scene/Scene.tsx`: web GL katmanı.

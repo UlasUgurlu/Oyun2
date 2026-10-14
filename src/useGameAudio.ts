@@ -9,9 +9,10 @@ export function useGameAudio(settings:AudioSettings,phase:Phase){
  crash=useAudioPlayer(require('../assets/audio/crash.wav')),combo=useAudioPlayer(require('../assets/audio/combo.wav')),
  p0=useAudioPlayer(require('../assets/audio/pickup-0.wav')),p1=useAudioPlayer(require('../assets/audio/pickup-1.wav')),
  p2=useAudioPlayer(require('../assets/audio/pickup-2.wav')),p3=useAudioPlayer(require('../assets/audio/pickup-3.wav')),
- shield=useAudioPlayer(require('../assets/audio/shield.wav')),nova=useAudioPlayer(require('../assets/audio/nova.wav')),victory=useAudioPlayer(require('../assets/audio/victory.wav'));
+ shield=useAudioPlayer(require('../assets/audio/shield.wav')),nova=useAudioPlayer(require('../assets/audio/nova.wav')),victory=useAudioPlayer(require('../assets/audio/victory.wav')),
+ phaseCue=useAudioPlayer(require('../assets/audio/phase.wav')),riftCue=useAudioPlayer(require('../assets/audio/rift.wav'));
  const settingsRef=useRef(settings),phaseRef=useRef(phase),epoch=useRef(0);settingsRef.current=settings;phaseRef.current=phase;
- const effects=useMemo(()=>[start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory],[start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory]);
+ const effects=useMemo(()=>[start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory,phaseCue,riftCue],[start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory,phaseCue,riftCue]);
  const playMusic=useCallback(()=>{if(music.isLoaded&&settingsRef.current.music&&phaseRef.current==='playing'){music.loop=true;music.volume=.34;music.play();}},[music]);
  useEffect(()=>{
   setAudioModeAsync({playsInSilentMode:true,shouldPlayInBackground:false,interruptionMode:'mixWithOthers'}).catch(()=>{});
@@ -28,7 +29,7 @@ export function useGameAudio(settings:AudioSettings,phase:Phase){
  },[]);
  return useMemo(()=>({
   begin:()=>{phaseRef.current='playing';playMusic();replay(start);},shift:()=>replay(shift),crash:()=>replay(crash),combo:()=>replay(combo),
-  pickup:(streak:number)=>replay([p0,p1,p2,p3][(streak-1)%4]),shield:()=>replay(shield),nova:()=>replay(nova),victory:()=>replay(victory),
+  pickup:(streak:number)=>replay([p0,p1,p2,p3][(streak-1)%4]),shield:()=>replay(shield),nova:()=>replay(nova),victory:()=>replay(victory),phaseJump:()=>replay(phaseCue),rift:()=>replay(riftCue),
   silence:()=>{epoch.current++;phaseRef.current='paused';music.pause();effects.forEach(p=>p.pause());},
- }),[playMusic,replay,start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory,music,effects]);
+ }),[playMusic,replay,start,shift,crash,combo,p0,p1,p2,p3,shield,nova,victory,phaseCue,riftCue,music,effects]);
 }

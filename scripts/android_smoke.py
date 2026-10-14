@@ -38,7 +38,8 @@ def find(label, enabled=False, timeout=25):
     while time.monotonic() < deadline:
         for node in ui().iter("node"):
             if label in (node.get("text"), node.get("content-desc")):
-                if not enabled or node.get("enabled") == "true":
+                # Text children can be enabled while their button is disabled.
+                if not enabled or (node.get("enabled") == "true" and node.get("clickable") == "true"):
                     return node
         time.sleep(0.5)
     raise RuntimeError("Visible Android control not found: " + label)
@@ -71,8 +72,26 @@ try:
     adb("logcat", "-c")
     launch()
     find("AKIŞA BAŞLA", enabled=True)
+    time.sleep(0.8)
+    assert not any("3B görünümü yeniden dene" in (node.get("text"), node.get("content-desc")) for node in ui().iter("node")), "Native 3D renderer fell back to SVG"
     screenshot("01-home.png")
     print("PASS: cold launch reaches a ready home screen", flush=True)
+    tap("Kaos")
+    screenshot("02-chaos-core.png")
+    tap("Koruma")
+    for size, density, name in [("1080x1920", "480", "03-home-360.png"), ("960x1704", "480", "04-home-320.png")]:
+        adb("shell", "wm", "size", size)
+        adb("shell", "wm", "density", density)
+        time.sleep(1)
+        button = find("AKIŞA BAŞLA", enabled=True)
+        _, _, _, bottom = map(int, re.findall(r"\d+", button.attrib["bounds"]))
+        assert bottom < int(size.split("x")[1]) - 40, "Start button overlaps Android navigation"
+        screenshot(name)
+    adb("shell", "wm", "size", "reset")
+    adb("shell", "wm", "density", "reset")
+    time.sleep(1)
+    find("AKIŞA BAŞLA", enabled=True)
+    print("PASS: new menu and core controls fit compact Android screens", flush=True)
     tap("Ayarlar")
     find("Akış ayarları")
     tap("English")
@@ -84,11 +103,12 @@ try:
     # position while idle and pause before asking UIAutomator for another tree.
     pause_position = center(find("Kayıtlar"))
     tap("AKIŞA BAŞLA")
-    time.sleep(0.3)
+    time.sleep(0.7)
     alive()
-    screenshot("02-playing.png")
+    screenshot("05-playing.png")
     adb("shell", "input", "tap", *pause_position)
     find("Bir nefes.")
+    screenshot("06-paused.png")
     tap("DEVAM ET")
     print("PASS: game start, pause and resume", flush=True)
     adb("shell", "input", "keyevent", "3")
@@ -104,12 +124,18 @@ try:
         find("AKIŞA BAŞLA", enabled=True)
     time.sleep(10)
     alive()
-    screenshot("03-relaunch.png")
+    screenshot("07-relaunch.png")
     print("PASS: repeated cold launches remain alive", flush=True)
 finally:
+    adb("shell", "wm", "size", "reset", check=False)
+    adb("shell", "wm", "density", "reset", check=False)
     log = adb("logcat", "-d", "-v", "threadtime", check=False)
     (EVIDENCE / "logcat.txt").write_bytes(log)
     lines = log.decode(errors="replace").splitlines()
+    fatal = False
     for i, line in enumerate(lines):
         if any(word in line for word in ["FATAL EXCEPTION", "Fatal signal", "JavascriptException"]):
+            fatal = True
             print("\n".join(lines[max(0, i - 1):i + 20]), flush=True)
+    if fatal:
+        raise RuntimeError("Fatal Android runtime exception captured in logcat")

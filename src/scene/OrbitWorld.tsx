@@ -1,7 +1,7 @@
 import React,{memo,useEffect,useMemo,useRef,type RefObject} from 'react';
 import {useFrame,useThree} from '@react-three/fiber';
 import * as T from 'three';
-import {ENTITY_POOL_SIZE,RADII,type Run} from '../game';
+import {ENTITY_POOL_SIZE,RADII,entityAngle,entityLane,type Run} from '../game';
 import {THEMES,type ThemeName} from '../preferences';
 export type Tier='low'|'medium'|'high';
 export type WorldProps={runRef:RefObject<Run>;onFrame:(dt:number)=>void;tier:Tier;theme:ThemeName;reducedMotion:boolean;onQuality?:(tier:Tier)=>void;onReady?:()=>void};
@@ -17,12 +17,26 @@ function Glow({color,size,opacity=.5,position=[0,0,0]}:{color:string;size:number
  useFrame(({camera})=>ref.current?.quaternion.copy(camera.quaternion));
  return <mesh ref={ref} scale={size} position={position} renderOrder={2}><planeGeometry/><shaderMaterial vertexShader={GLOW_VERTEX} fragmentShader={GLOW_FRAGMENT} uniforms={uniforms} transparent depthWrite={false} blending={T.AdditiveBlending} toneMapped={false}/></mesh>;
 }
+const MIST_FRAGMENT=`uniform vec3 tint;uniform vec3 lightTint;uniform float clock;uniform float strength;varying vec2 vUv;void main(){vec2 p=vUv*2.-1.;float bend=sin(p.x*4.+clock*.06)*.16;float d=p.y+bend-p.x*.28;float cloud=exp(-d*d*5.)*exp(-p.x*p.x*.7);float ribbon=.65+.35*sin(p.x*8.+p.y*3.+clock*.08);vec3 c=mix(tint,lightTint,clamp(.5+p.x*.4,0.,1.));gl_FragColor=vec4(c,cloud*ribbon*strength);}`;
+function Atmosphere({runRef,theme,tier,reducedMotion}:Pick<WorldProps,'runRef'|'theme'|'tier'|'reducedMotion'>){
+ const mist=useRef<T.Mesh>(null),portal=useRef<T.Mesh>(null),portalMaterial=useRef<T.MeshBasicMaterial>(null),p=THEMES[theme];
+ const uniforms=useMemo(()=>({tint:{value:new T.Color(p.outer)},lightTint:{value:new T.Color(p.inner)},clock:{value:0},strength:{value:.17}}),[theme]);
+ useFrame(({camera})=>{const r=runRef.current;mist.current?.quaternion.copy(camera.quaternion);uniforms.clock.value=reducedMotion?0:r.visualTime;uniforms.strength.value=r.anomaly==='surge'?.23:.17;
+  if(portal.current){portal.current.visible=r.mode==='rift'||r.anomaly!=='none';portal.current.rotation.y=r.visualTime*.12*r.direction;portal.current.rotation.z=.28+(reducedMotion?0:Math.sin(r.visualTime*.4)*.06);}
+  if(portalMaterial.current){portalMaterial.current.color.set(r.anomaly==='surge'?'#ffc06e':r.anomaly==='magnet'?'#63efff':p.outer);portalMaterial.current.opacity=r.upcoming!=='none'?.55:.24;}
+ });
+ return <><mesh ref={mist} position={[0,1.5,-7]} scale={[17,9,1]} visible={tier!=='low'} renderOrder={-5}><planeGeometry/><shaderMaterial vertexShader={GLOW_VERTEX} fragmentShader={MIST_FRAGMENT} uniforms={uniforms} transparent depthWrite={false} blending={T.AdditiveBlending} toneMapped={false}/></mesh>
+  <Glow color={p.inner} size={7.5} opacity={.11} position={[4,.5,-5]}/>
+  <mesh ref={portal} position={[0,1.02,0]} rotation={[.5,0,.28]}><torusGeometry args={[1.35,.009,4,72]}/><meshBasicMaterial ref={portalMaterial} color={p.outer} transparent opacity={.24} toneMapped={false} depthWrite={false}/></mesh>
+  <mesh position={[0,-.09,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[3.38,3.62,72]}/><meshBasicMaterial color={p.outer} transparent opacity={.06} toneMapped={false} depthWrite={false}/></mesh>
+ </>;
+}
 function Stars({runRef,tier}:Pick<WorldProps,'runRef'|'tier'>){
  const ref=useRef<T.Points>(null),geo=useRef<T.BufferGeometry>(null);
  const data=useMemo(()=>{const p=new Float32Array(320*3),c=new Float32Array(320*3);const color=new T.Color();for(let i=0;i<320;i++){p[i*3]=(Math.sin(i*132.7)) *13.5;p[i*3+1]=(Math.sin(i*45.12)*.5+.15)*15;p[i*3+2]=-14+(Math.sin(i*81.3)*.5+.5)*17;color.set(i%4===0?'#b599f7':i%4===1?'#3dc8dc':'#8799be');c[i*3]=color.r;c[i*3+1]=color.g;c[i*3+2]=color.b;}return{p,c};},[]);
  useEffect(()=>{geo.current?.setDrawRange(0,tier==='low'?80:tier==='medium'?180:320);},[tier]);
  useFrame(()=>{if(ref.current)ref.current.rotation.y=runRef.current.visualTime*.005;});
- return <points ref={ref}><bufferGeometry ref={geo}><bufferAttribute attach="attributes-position" args={[data.p,3]}/><bufferAttribute attach="attributes-color" args={[data.c,3]}/></bufferGeometry><pointsMaterial size={.028} vertexColors transparent opacity={.7} depthWrite={false}/></points>;
+ return <points ref={ref}><bufferGeometry ref={geo}><bufferAttribute attach="attributes-position" args={[data.p,3]}/><bufferAttribute attach="attributes-color" args={[data.c,3]}/></bufferGeometry><pointsMaterial size={.043} vertexColors transparent opacity={.85} depthWrite={false}/></points>;
 }
 function Track({radius,color}:{radius:number;color:string}){
  const ticks=useRef<T.InstancedMesh>(null);
@@ -43,7 +57,7 @@ function Core({runRef,theme,reducedMotion}:Pick<WorldProps,'runRef'|'theme'|'red
   <mesh position={[0,-.015,0]}><cylinderGeometry args={[.76,.82,.10,36]}/><meshStandardMaterial color="#2d254a" roughness={.2} metalness={.8}/></mesh>
   <mesh position={[0,.045,0]} rotation={[-Math.PI/2,0,0]}><torusGeometry args={[.70,.015,6,64]}/><meshBasicMaterial color={p.outer} toneMapped={false}/></mesh>
   <instancedMesh ref={turbine} args={[undefined,undefined,8]}><boxGeometry args={[.07,.18,.14]}/><meshStandardMaterial color="#63557e" metalness={.7} roughness={.25}/></instancedMesh>
-  <Glow color={p.glow} size={3.7} opacity={.32} position={[0,.9,0]}/>
+  <Glow color={p.glow} size={4.4} opacity={.40} position={[0,.9,0]}/>
   <group ref={crystal} position={[0,.98,0]}><mesh scale={[.75,1.3,.75]}><icosahedronGeometry args={[.65,0]}/><meshStandardMaterial color={p.core} emissive={p.glow} emissiveIntensity={.17} metalness={.6} roughness={.17}/></mesh><mesh scale={[.756,1.305,.756]}><icosahedronGeometry args={[.65,0]}/><meshBasicMaterial color={p.core} wireframe transparent opacity={.24}/></mesh></group>
   <group ref={halo} position={[0,.98,0]} rotation={[.34,0,-.2]}><mesh rotation={[Math.PI/2,.5,0]}><torusGeometry args={[1.01,.025,6,64]}/><meshStandardMaterial color="#d0ac6b" metalness={.7} roughness={.22}/></mesh><mesh rotation={[.5,-.3,.4]}><torusGeometry args={[.93,.011,5,64]}/><meshBasicMaterial color={p.outer} transparent opacity={.65} toneMapped={false}/></mesh><mesh position={[1.01,0,0]}><sphereGeometry args={[.052,8,6]}/><meshBasicMaterial color="#ffe2a0" toneMapped={false}/></mesh></group>
   <pointLight position={[0,1.2,0]} color={p.core} intensity={5} distance={6} decay={2}/>
@@ -53,13 +67,13 @@ type InstRef=React.RefObject<T.InstancedMesh|null>;
 function updateInstances(ref:InstRef,count:number){if(ref.current){ref.current.count=count;ref.current.instanceMatrix.needsUpdate=true;}}
 function Batches({runRef,tier,reducedMotion}:Pick<WorldProps,'runRef'|'tier'|'reducedMotion'>){
  const spark=useRef<T.InstancedMesh>(null),ring=useRef<T.InstancedMesh>(null),sparkGlow=useRef<T.InstancedMesh>(null),gate=useRef<T.InstancedMesh>(null),beam=useRef<T.InstancedMesh>(null),panel=useRef<T.InstancedMesh>(null),shield=useRef<T.InstancedMesh>(null),shieldWire=useRef<T.InstancedMesh>(null);
- const o=useMemo(()=>new T.Object3D(),[]),glowUniforms=useMemo(()=>({tint:{value:new T.Color('#ffb558')},strength:{value:.62}}),[]);
+ const o=useMemo(()=>new T.Object3D(),[]),gateColor=useMemo(()=>new T.Color(),[]),glowUniforms=useMemo(()=>({tint:{value:new T.Color('#ffb558')},strength:{value:.62}}),[]);
  useEffect(()=>{for(const ref of [spark,ring,sparkGlow,gate,beam,panel,shield,shieldWire])ref.current?.instanceMatrix.setUsage(T.DynamicDrawUsage);},[]);
  const write=(ref:InstRef,i:number,x:number,y:number,z:number,sx:number,sy:number,sz:number,yaw=0,rx=0)=>{o.position.set(x,y,z);o.rotation.set(rx,yaw,0);o.scale.set(sx,sy,sz);o.updateMatrix();ref.current?.setMatrixAt(i,o.matrix);};
  useFrame(({camera})=>{
   const r=runRef.current;let ns=0,ng=0,nsh=0;
   for(let i=0;i<r.entities.length;i++){
-   const e=r.entities[i],a=Math.PI/2+e.angle-r.displayAngle,x=Math.cos(a)*RADII[e.lane],z=Math.sin(a)*RADII[e.lane],yaw=-a+Math.PI/2,y=.27+(reducedMotion?0:Math.sin(r.visualTime*2+e.id)*.03);
+   const e=r.entities[i],a=entityAngle(r,e),radius=RADII[0]+entityLane(e)*1.2,x=Math.cos(a)*radius,z=Math.sin(a)*radius,yaw=-a+Math.PI/2,y=.27+(reducedMotion?0:Math.sin(r.visualTime*2+e.id)*.03);
    if(e.kind==='spark'){
     write(spark,ns,x,y,z,.85,1.15,.85,r.visualTime*1.4+e.id);write(ring,ns,x,y,z,1,1,1,0,Math.PI/2);
     o.position.set(x,y,z);o.quaternion.copy(camera.quaternion);o.scale.setScalar(.88);o.updateMatrix();sparkGlow.current?.setMatrixAt(ns,o.matrix);ns++;
@@ -68,18 +82,21 @@ function Batches({runRef,tier,reducedMotion}:Pick<WorldProps,'runRef'|'tier'|'re
    }else{
     const c=Math.cos(yaw),s=Math.sin(yaw);
     write(gate,ng*2,x-.22*c,.36,z+.22*s,.10,.54,.17,yaw);write(gate,ng*2+1,x+.22*c,.36,z-.22*s,.10,.54,.17,yaw);
-    write(beam,ng,x,.60,z,.53,.08,.17,yaw);write(panel,ng,x,.35,z,1,1,1,yaw);ng++;
+    write(beam,ng,x,.60,z,.53,.08,.17,yaw);write(panel,ng,x,.35,z,1,1,1,yaw);
+    gateColor.set(e.shiftFrom!==undefined?'#ba9aff':'#ff437d');beam.current?.setColorAt(ng,gateColor);panel.current?.setColorAt(ng,gateColor);ng++;
    }
   }
   updateInstances(spark,ns);updateInstances(ring,ns);updateInstances(sparkGlow,tier==='low'?0:ns);updateInstances(gate,ng*2);updateInstances(beam,ng);updateInstances(panel,ng);updateInstances(shield,nsh);updateInstances(shieldWire,nsh);
+  if(beam.current?.instanceColor)beam.current.instanceColor.needsUpdate=true;
+  if(panel.current?.instanceColor)panel.current.instanceColor.needsUpdate=true;
  });
  return <group>
   <instancedMesh ref={spark} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><octahedronGeometry args={[.17,0]}/><meshStandardMaterial color="#ffc875" emissive="#bf6010" emissiveIntensity={.62} metalness={.6} roughness={.2}/></instancedMesh>
   <instancedMesh ref={ring} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><torusGeometry args={[.21,.009,4,20]}/><meshBasicMaterial color="#ffe3a8" toneMapped={false}/></instancedMesh>
   <instancedMesh ref={sparkGlow} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false} renderOrder={2}><planeGeometry/><shaderMaterial vertexShader={GLOW_VERTEX} fragmentShader={GLOW_FRAGMENT} uniforms={glowUniforms} transparent depthWrite={false} blending={T.AdditiveBlending} toneMapped={false}/></instancedMesh>
   <instancedMesh ref={gate} args={[undefined,undefined,ENTITY_POOL_SIZE*2]} frustumCulled={false}><boxGeometry/><meshStandardMaterial color="#44304b" metalness={.65} roughness={.25}/></instancedMesh>
-  <instancedMesh ref={beam} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><boxGeometry/><meshBasicMaterial color="#ff437d" toneMapped={false}/></instancedMesh>
-  <instancedMesh ref={panel} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><planeGeometry args={[.35,.44]}/><meshBasicMaterial color="#ff3871" opacity={.25} transparent side={T.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
+  <instancedMesh ref={beam} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><boxGeometry/><meshBasicMaterial color="white" toneMapped={false}/></instancedMesh>
+  <instancedMesh ref={panel} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><planeGeometry args={[.35,.44]}/><meshBasicMaterial color="white" opacity={.25} transparent side={T.DoubleSide} depthWrite={false} toneMapped={false}/></instancedMesh>
   <instancedMesh ref={shield} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><octahedronGeometry args={[.18,0]}/><meshStandardMaterial color="#bdfcff" emissive="#238eaf" emissiveIntensity={.7} metalness={.45} roughness={.2}/></instancedMesh>
   <instancedMesh ref={shieldWire} args={[undefined,undefined,ENTITY_POOL_SIZE]} frustumCulled={false}><icosahedronGeometry args={[.26,0]}/><meshBasicMaterial color="#61eaff" wireframe toneMapped={false}/></instancedMesh>
  </group>;
@@ -92,14 +109,14 @@ function Ship({runRef,reducedMotion}:Pick<WorldProps,'runRef'|'reducedMotion'>){
   const r=runRef.current,radius=RADII[0]+r.displayBlend*1.2;
   if(prior.current!==r){history.fill(radius);prior.current=r;}
   const visible=r.phase!=='over'||r.finishReason==='complete'||r.shake>.3;
-  if(root.current){root.current.visible=visible;root.current.position.set(0,.28+(reducedMotion?0:Math.sin(r.visualTime*4)*.01),radius);root.current.rotation.z=(r.targetLane-r.displayBlend)*-.35;}
-  if(bubble.current)bubble.current.visible=r.shield;
-  if(novaRing.current){novaRing.current.visible=r.novaLeft>0;novaRing.current.scale.setScalar(1+(reducedMotion?0:Math.sin(r.visualTime*5)*.08));}
+  if(root.current){root.current.visible=visible;root.current.position.set(0,.28+(reducedMotion?0:Math.sin(r.visualTime*4)*.01),radius);root.current.rotation.z=(r.targetLane-r.displayBlend)*-.35;root.current.rotation.y=Math.PI/2*r.direction;}
+  if(bubble.current)bubble.current.visible=r.shield||r.phaseLeft>0||(r.phase==='home'&&r.core==='guardian');
+  if(novaRing.current){novaRing.current.visible=r.novaLeft>0||r.anomaly==='magnet';novaRing.current.scale.setScalar(1+(reducedMotion?0:Math.sin(r.visualTime*5)*.08));}
   history[0]=radius;const weight=1-Math.exp(-Math.min(dt,.05)*25);
   for(let i=1;i<15;i++)history[i]+=(history[i-1]-history[i])*weight;
-  for(let i=0;i<15;i++){const a=Math.PI/2-(i+1)*.030;o.position.set(Math.cos(a)*history[i],.21,Math.sin(a)*history[i]);o.rotation.set(0,0,0);o.scale.setScalar(Math.max(.012,.045-i*.0025));o.updateMatrix();trail.current?.setMatrixAt(i,o.matrix);}
+  for(let i=0;i<15;i++){const a=Math.PI/2-(i+1)*.030*r.direction;o.position.set(Math.cos(a)*history[i],.21,Math.sin(a)*history[i]);o.rotation.set(0,0,0);o.scale.setScalar(Math.max(.012,.045-i*.0025));o.updateMatrix();trail.current?.setMatrixAt(i,o.matrix);}
   if(trail.current){trail.current.count=visible?15:0;trail.current.instanceMatrix.needsUpdate=true;}
-  trailMat.current?.color.set(r.novaLeft>0?'#eebcff':'#6ee5f4');
+  trailMat.current?.color.set(r.phaseLeft>0?'#c6ffff':r.anomaly==='surge'?'#ffc06e':r.novaLeft>0?'#eebcff':r.core==='volatile'?'#ffd09a':'#6ee5f4');
  });
  return <><group ref={root} rotation={[0,Math.PI/2,0]}>
   <mesh rotation={[-Math.PI/2,0,0]}><coneGeometry args={[.18,.57,4]}/><meshStandardMaterial color="#dce8fc" metalness={.8} roughness={.17}/></mesh>
@@ -131,7 +148,7 @@ function Driver({runRef,onFrame,onQuality,onReady,tier,reducedMotion}:WorldProps
 }
 const OrbitWorld=memo(function OrbitWorld(props:WorldProps){const p=THEMES[props.theme];return <>
  <Driver {...props}/><hemisphereLight args={['#b4c1fa','#130c22',2.2]}/><directionalLight position={[3,6,5]} intensity={3.7} color="#d5eaff"/>
- <Stars runRef={props.runRef} tier={props.tier}/><Glow color={p.glow} size={11} opacity={.11} position={[-3,1,-5]}/>
+ <Stars runRef={props.runRef} tier={props.tier}/><Atmosphere {...props}/><Glow color={p.glow} size={11} opacity={.15} position={[-3,1,-5]}/>
  <Track radius={RADII[0]} color={p.inner}/><Track radius={RADII[1]} color={p.outer}/><Core {...props}/><Batches {...props}/><Ship {...props}/><Bursts {...props}/>
  </>;});
 export default OrbitWorld;

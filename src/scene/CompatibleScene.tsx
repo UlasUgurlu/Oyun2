@@ -1,6 +1,6 @@
 import React,{memo,useEffect,useRef,useState} from 'react';
 import Svg,{Ellipse,Polygon,Circle,Defs,RadialGradient,Stop} from 'react-native-svg';
-import {RADII} from '../game';
+import {RADII,entityAngle,entityLane} from '../game';
 import {THEMES} from '../preferences';
 import type {SceneProps} from './config';
 export default memo(function CompatibleScene(props:SceneProps){
@@ -14,7 +14,7 @@ export default memo(function CompatibleScene(props:SceneProps){
   {RADII.map((radius,i)=><Ellipse key={radius} cx={180} cy={160} rx={radius*44} ry={radius*44*.46} stroke={i?p.outer:p.inner} strokeWidth={3} fill="none"/>)}
   <Ellipse cx={180} cy={166} rx={40} ry={19} fill="#24203c"/>
   <Polygon points="180,83 154,133 180,166 205,133" fill="url(#core)" stroke={p.core} strokeWidth={1}/>
-  {r.entities.map(e=>{const a=Math.PI/2+e.angle-r.displayAngle,x=180+Math.cos(a)*RADII[e.lane]*44,y=160+Math.sin(a)*RADII[e.lane]*44*.46;return e.kind==='gate'?<Polygon key={e.id} points={`${x-7},${y-12} ${x+7},${y-12} ${x+7},${y+3} ${x-7},${y+3}`} fill="#e64478"/>:<Circle key={e.id} cx={x} cy={y} r={e.kind==='shield'?7:5} fill={e.kind==='shield'?'#70efff':'#ffd180'}/>;})}
-  {(r.phase!=='over'||r.finishReason==='complete')&&<><Polygon points={`180,${y-8} 189,${y+6} 180,${y+2} 171,${y+6}`} fill="#d1f3ff"/>{r.shield&&<Circle cx={180} cy={y} r={15} stroke="#80edff" fill="none"/>}</>}
+  {r.entities.map(e=>{const a=entityAngle(r,e),radius=RADII[0]+entityLane(e)*1.2,x=180+Math.cos(a)*radius*44,y=160+Math.sin(a)*radius*44*.46;return e.kind==='gate'?<Polygon key={e.id} points={`${x-7},${y-12} ${x+7},${y-12} ${x+7},${y+3} ${x-7},${y+3}`} fill={e.shiftFrom!==undefined?'#bb9bff':'#e64478'}/>:<Circle key={e.id} cx={x} cy={y} r={e.kind==='shield'?7:5} fill={e.kind==='shield'?'#70efff':'#ffd180'}/>;})}
+  {(r.phase!=='over'||r.finishReason==='complete')&&<><Polygon points={`180,${y-8} 189,${y+6} 180,${y+2} 171,${y+6}`} fill="#d1f3ff"/>{(r.shield||r.phaseLeft>0)&&<Circle cx={180} cy={y} r={15} stroke="#80edff" fill="none"/>}</>}
  </Svg>;
 });

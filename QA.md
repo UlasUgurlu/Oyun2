@@ -1,12 +1,18 @@
 # Orbit Tide — Doğrulama raporu
 
+## 1.3.0 kontrol durumu
+
+`npm run typecheck` geçti; `npm test` ile 30 test geçti. Yeni kontroller Faz süresi/bekleme süresi, duraklatılan saatler, çekirdeklerin puan ve koruma etkisi, kayan kapı çiftleri, üç anomali, tek seferlik görev ödülü, XP aktarımı ve dört dilde yeni metinleri kapsar.
+
+Bu sürümün iş akışı Chromium üzerinde 390 × 844, 360 × 640 ve 320 × 568 menülerini görüntüler. Normal dokunma/klavye girişleriyle üç anomaliyi oynar, Faz/Nova kullanımını ve duraklatılan saatleri denetler; görüntüleri ve sonuçları saklar. Android iş akışı 1.2.1 üzerine kurulumu, hazır ana ekranı, iki küçük Android görünümünü, çekirdek/dil seçimini, oyun/duraklatma ve yeniden açılmayı kontrol eder. Bu kontrollerin sonuçları ilgili başarılı iş akışından okunmalıdır; aşağıdaki 1.2 ölçümleri 1.3 performans ölçümü sayılmaz.
+
 ## Android 1.2.1 açılış düzeltmesi
 
 1.2.0'ın Android 15 üzerinde başlatılması kapanmayla sonuçlandı. ARM64 APK'nın x86_64 emülatöründeki çeviri köprüsü için yerel kütüphane çıkarımı etkinleştirildiğinde asıl JavaScript hatası görüldü: `[runtime not ready]: TypeError: undefined is not a function`.
 
 Hermes kayıtları yeniden oluşturulan kaynak haritasıyla `three/build/three.cjs:12` satırına eşlendi. Bu giriş modülü Node.js'e özgü `process.emitWarning` çağırıyordu. Metro çözümleyicisi, React Three Fiber ve oyunun Three içe aktarımlarını `three.module.js` üzerinden ortak modüle yönlendiriyor. Yerel Android dışa aktarımının kaynak haritasında `three.cjs` bulunmadığı doğrulandı.
 
-1.2.1 yayımlama akışı imza, JavaScript paketi, temel ARM64 kütüphaneleri ve kaynak haritasını doğrular. Ardından API 35 Google APIs emülatöründe aynı ARM64 APK ile eski sürüm üzerine kurulum, hazır ana ekran, dil seçimi, oyun başlatma, duraklatma, arka plandan dönme ve yeniden açılış kontrollerini çalıştırır. Test geçmeden sürüm yayımlanmaz. Günlükler ve ekran görüntüleri iş akışına eklenir. Bu emülatör doğrulaması fiziksel Samsung cihaz testi değildir.
+1.2.1 yayımlama akışı imza, JavaScript paketi, temel ARM64 kütüphaneleri ve kaynak haritasını doğrular. Ardından API 35 Google APIs emülatöründe aynı ARM64 APK ile eski sürüm üzerine kurulum, hazır ana ekran, dil seçimi, oyun başlatma, duraklatma, arka plandan dönme ve yeniden açılış kontrollerini çalıştırır. Test geçmeden sürüm yayımlanmaz. Günlükler ve ekran görüntüleri iş akışına eklenir. Bu emülatör doğrulaması fiziksel telefon testi değildir.
 
 ## 1.2.0 web ve oyun motoru kontrolleri
 
