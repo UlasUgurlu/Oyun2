@@ -18,6 +18,45 @@ jobs:
           path: delivery
           run-id: 38587700847
           github-token: ${{ github.token }}
+      - name: Diagnose extracted native library packaging
+        run: |
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" 'build-tools;36.0.0'
+          python - <<'PY'
+          import struct, zipfile
+          from pathlib import Path
+          source = Path('delivery/Orbit-Tide-1.2.0.apk')
+          with zipfile.ZipFile(source) as old:
+              manifest = bytearray(old.read('AndroidManifest.xml'))
+              resources = []
+              offset, changed = 8, 0
+              while offset < len(manifest):
+                  kind, header, size = struct.unpack_from('<HHI', manifest, offset)
+                  if kind == 0x180:
+                      resources = list(struct.unpack_from('<' + 'I' * ((size-header)//4), manifest, offset+header))
+                  elif kind == 0x102:
+                      start, width, count = struct.unpack_from('<HHH', manifest, offset+24)
+                      for i in range(count):
+                          pos = offset+16+start+i*width
+                          index = struct.unpack_from('<I', manifest, pos+4)[0]
+                          if index < len(resources) and resources[index] == 0x010104ea:
+                              assert manifest[pos+15] == 0x12
+                              struct.pack_into('<I', manifest, pos+16, 0xffffffff)
+                              changed += 1
+                  offset += size
+              assert changed == 1
+              with zipfile.ZipFile('delivery/extracted-unsigned.apk', 'w') as new:
+                  for entry in old.infolist():
+                      if entry.filename.startswith('META-INF/'):
+                          continue
+                      data = bytes(manifest) if entry.filename == 'AndroidManifest.xml' else old.read(entry)
+                      if entry.filename.endswith('.so'):
+                          entry.compress_type = zipfile.ZIP_DEFLATED
+                      new.writestr(entry, data)
+          PY
+          keytool -genkeypair -keystore diagnosis.keystore -storepass android -keypass android -alias androiddebugkey -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -validity 10000
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" -f 4 delivery/extracted-unsigned.apk delivery/extracted-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" sign --ks diagnosis.keystore --ks-pass pass:android --key-pass pass:android --out delivery/Orbit-Tide-1.2.0.apk delivery/extracted-aligned.apk
+          "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" verify delivery/Orbit-Tide-1.2.0.apk
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
