@@ -1,0 +1,89 @@
+name: Publish Orbit Tide APK
+
+on:
+  push:
+    branches: [apk-download]
+    paths: [.github/workflows/publish-apk.yml]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-orbit-tide-v1.2.0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download verified APK from successful build
+        uses: actions/download-artifact@v4
+        with:
+          name: orbit-tide-apk
+          path: delivery
+          run-id: 38587700847
+          github-token: ${{ github.token }}
+
+      - name: Verify APK before publishing
+        working-directory: delivery
+        run: |
+          sha256sum -c sha256.txt
+          python - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          apk = Path('Orbit-Tide-1.2.0.apk')
+          expected = '3d8d61327214d3849ba5c82966fe81cee05b55fae48b9ef1a19959874efc8053'
+          assert apk.stat().st_size == 35999573
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == expected
+          info = json.loads(Path('build-info.json').read_text())
+          assert info['commit'] == '6612381c5a9d9ca9932db2f964562df81b78dd5e'
+          assert info['version'] == '1.2.0' and info['sha256'] == expected
+          with zipfile.ZipFile(apk) as z:
+              assert z.testzip() is None
+              assert 'assets/index.android.bundle' in z.namelist()
+              assert any(n.startswith('lib/arm64-v8a/') for n in z.namelist())
+          print('Original signed APK and source commit verified.')
+          PY
+
+      - name: Publish direct APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > release-notes.md <<'NOTES'
+          Orbit Tide 1.2.0 — Android ARM64
+
+          İndirmek için Assets bölümündeki Orbit-Tide-1.2.0.apk dosyasına dokunun.
+          Dosya boyutu yaklaşık 36 MB. Expo Go gerektirmez.
+          Türkçe, İngilizce, Almanca ve İspanyolca dil seçenekleri içerir.
+          NOTES
+          gh release create v1.2.0 delivery/Orbit-Tide-1.2.0.apk delivery/sha256.txt \
+            --repo UlasUgurlu/Oyun2 \
+            --target 6612381c5a9d9ca9932db2f964562df81b78dd5e \
+            --title 'Orbit Tide 1.2.0' --notes-file release-notes.md
+
+      - name: Verify anonymous direct download
+        run: |
+          python - <<'PY'
+          import hashlib, time, urllib.request
+          url = 'https://github.com/UlasUgurlu/Oyun2/releases/download/v1.2.0/Orbit-Tide-1.2.0.apk'
+          for attempt in range(3):
+              try:
+                  digest = hashlib.sha256()
+                  size = 0
+                  with urllib.request.urlopen(url, timeout=90) as response:
+                      assert response.status == 200
+                      while chunk := response.read(1024 * 1024):
+                          digest.update(chunk)
+                          size += len(chunk)
+                  assert size == 35999573
+                  assert digest.hexdigest() == '3d8d61327214d3849ba5c82966fe81cee05b55fae48b9ef1a19959874efc8053'
+                  print('Public download verified without login: ' + url)
+                  break
+              except Exception:
+                  if attempt == 2:
+                      raise
+                  time.sleep(5)
+          PY
