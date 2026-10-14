@@ -16,10 +16,10 @@ export function HomeIntro({t,profile,compact,reducedMotion}:{t:Words;profile:Pro
  useEffect(()=>{if(reducedMotion){entry.setValue(1);return;}const animation=Animated.timing(entry,{toValue:1,duration:420,useNativeDriver:true});animation.start();return()=>animation.stop();},[entry,reducedMotion]);
  return <Animated.View style={[styles.intro,compact&&{paddingTop:6,paddingBottom:5},{opacity:entry,transform:[{translateY:entry.interpolate({inputRange:[0,1],outputRange:[12,0]})}]}]}>
   <View style={styles.eyebrowRow}><View style={styles.dot}/><Text numberOfLines={1} style={styles.eyebrow}>{t.homeKicker}</Text></View>
-  <View style={styles.titleRow}><View style={{flex:1}}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.title,compact&&{fontSize:29,lineHeight:33}]}>{t.homeTitle}</Text>{!compact&&<Text style={styles.copy}>{t.homeCopy}</Text>}</View>
-   <LinearGradient colors={['#293342','#172230']} style={styles.level}><Text style={styles.levelLabel}>{t.level}</Text><Text style={styles.levelNumber}>{rank.level.toString().padStart(2,'0')}</Text></LinearGradient>
+  <View style={[styles.titleRow,compact&&{marginTop:5}]}><View style={{flex:1}}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.title,compact&&{fontSize:29,lineHeight:33}]}>{t.homeTitle}</Text>{!compact&&<Text style={styles.copy}>{t.homeCopy}</Text>}</View>
+   <LinearGradient colors={['#293342','#172230']} style={[styles.level,compact&&{paddingVertical:4}]}><Text style={styles.levelLabel}>{t.level}</Text><Text style={[styles.levelNumber,compact&&{fontSize:18,lineHeight:20}]}>{rank.level.toString().padStart(2,'0')}</Text></LinearGradient>
   </View>
-  <View style={styles.progress}><View style={[styles.progressFill,{width:`${rank.progress*100}%`}]}/></View>
+  <View style={[styles.progress,compact&&{marginTop:6}]}><View style={[styles.progressFill,{width:`${rank.progress*100}%`}]}/></View>
   {!compact&&<View style={styles.progressLabels}><Text style={styles.progressText}>{rank.current} / {rank.required} {t.xp}</Text><Text style={styles.progressText}>{t.phases} · {t.anomalies} · {t.missions}</Text></View>}
  </Animated.View>;
 }
@@ -42,12 +42,12 @@ export function HomeChoices({t,mode,core,onMode,onCore,compact,children,onHelp}:
     <Feather name={active?'check-circle':'circle'} size={18} color={active?'#c7afff':'#514b69'}/>
    </LinearGradient>
   </Pressable>
-  <View style={styles.modeRow}>{(['classic','sprint'] as const).map(item=><Pressable key={item} onPress={()=>onMode(item)} accessibilityRole="button" accessibilityLabel={t[item]} accessibilityState={{selected:mode===item}} style={({pressed})=>[styles.mode,mode===item&&styles.modeSelected,pressed&&{opacity:.7}]}><Feather name={item==='classic'?'repeat':'clock'} size={14} color={mode===item?'#d9c8f8':'#8b859b'}/><Text numberOfLines={1} style={[styles.modeText,mode===item&&{color:'#eadbff'}]}>{t[item]}</Text></Pressable>)}</View>
-  <View style={styles.coreHeading}><Text style={styles.section}>{t.coreTitle}</Text><Feather name="cpu" size={11} color="#786e98"/></View>
+  <View style={[styles.modeRow,compact&&{marginTop:5}]}>{(['classic','sprint'] as const).map(item=><Pressable key={item} onPress={()=>onMode(item)} accessibilityRole="button" accessibilityLabel={t[item]} accessibilityState={{selected:mode===item}} style={({pressed})=>[styles.mode,mode===item&&styles.modeSelected,pressed&&{opacity:.7}]}><Feather name={item==='classic'?'repeat':'clock'} size={14} color={mode===item?'#d9c8f8':'#8b859b'}/><Text numberOfLines={1} style={[styles.modeText,mode===item&&{color:'#eadbff'}]}>{t[item]}</Text></Pressable>)}</View>
+  <View style={[styles.coreHeading,compact&&{marginTop:8,marginBottom:5}]}><Text style={styles.section}>{t.coreTitle}</Text><Feather name="cpu" size={11} color="#786e98"/></View>
   <View style={styles.coreRow}>{cores.map(item=><Pressable key={item.id} onPress={()=>onCore(item.id)} accessibilityRole="button" accessibilityLabel={t[item.id]} accessibilityState={{selected:core===item.id}} hitSlop={3} style={({pressed})=>[styles.core,core===item.id&&{borderColor:item.color+'99',backgroundColor:item.color+'14'},pressed&&{opacity:.7}]}><Feather name={item.icon} size={13} color={core===item.id?item.color:'#7f7896'}/><Text numberOfLines={1} style={[styles.coreText,core===item.id&&{color:item.color}]}>{t[item.id]}</Text></Pressable>)}</View>
   <Text numberOfLines={2} style={styles.coreCopy}>{description}</Text>
-  <View style={styles.start}>{children}</View>
-  <View style={styles.bottom}><Pressable onPress={onHelp} accessibilityRole="button" accessibilityLabel={t.help} hitSlop={7} style={styles.help}><Feather name="help-circle" size={12} color="#a69bbb"/><Text style={styles.helpText}>{t.help}</Text></Pressable><Text numberOfLines={1} style={styles.note}>{t.menuNote}</Text></View>
+  <View style={[styles.start,compact&&{marginTop:8}]}>{children}</View>
+  <View style={[styles.bottom,compact&&{height:24}]}><Pressable onPress={onHelp} accessibilityRole="button" accessibilityLabel={t.help} hitSlop={7} style={styles.help}><Feather name="help-circle" size={12} color="#a69bbb"/><Text style={styles.helpText}>{t.help}</Text></Pressable><Text numberOfLines={1} style={styles.note}>{t.menuNote}</Text></View>
  </View>;
 }
 
