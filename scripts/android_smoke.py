@@ -114,6 +114,7 @@ try:
     adb("logcat", "-c")
     launch()
     find("AKIŞA BAŞLA", enabled=True)
+    find("Yörüngeyi kır.")
     time.sleep(0.8)
     assert not any("3B görünümü yeniden dene" in (node.get("text"), node.get("content-desc")) for node in ui().iter("node")), "Native 3D renderer fell back to SVG"
     screenshot("01-home.png")
@@ -164,6 +165,7 @@ try:
         adb("shell", "am", "force-stop", PACKAGE)
         launch()
         find("AKIŞA BAŞLA", enabled=True)
+        find("Yörüngeyi kır.")
     time.sleep(10)
     alive()
     screenshot("07-relaunch.png")

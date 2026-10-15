@@ -144,11 +144,11 @@ function Game(){
  return <LinearGradient colors={['#131029','#080c1b','#090c16']} style={s.background}><StatusBar barStyle="light-content"/>
   {phase==='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><LinearGradient colors={['#65459a3d','#4837800b','transparent']} style={extra.skyGlow}/><LinearGradient colors={['#21607628','transparent']} style={extra.lowerGlow}/>{[[14,21],[90,15],[7,44],[94,61],[13,82]].map(([x,y],i)=><View key={i} style={[extra.menuStar,{left:`${x}%`,top:`${y}%`,opacity:i%2?.6:.35}]}/>)}</View>}
   <View collapsable={false} style={[s.shell,{paddingTop:insets.top+9,paddingBottom:Math.max(insets.bottom,12)}]}>
-   <View collapsable={false} style={s.header}><View collapsable={false} style={s.wordmark}><Logo size={30}/><Text style={s.logoType}>ORBIT<Text style={{color:'#aaa0cc'}}> TIDE</Text></Text></View><View style={s.headerRight}>
+   <View collapsable={false} style={s.header}><Image source={require('./assets/logo-lockup.png')} resizeMode="contain" style={{width:150,height:39}} accessibilityLabel="Orbit Tide"/><View style={s.headerRight}>
     {isRun?<Pressable onPress={pause} accessibilityRole="button" accessibilityLabel={t.pause} style={s.iconButton}><Icon name="pause" color="#ddd4ef" size={18}/></Pressable>:<Pressable onPress={()=>open('stats')} accessibilityRole="button" accessibilityLabel={t.records} style={s.bestBadge}><Icon name="award" size={14} color="#e8c683"/><Text style={s.bestNumber}>{format(best)}</Text></Pressable>}
     <Pressable onPress={()=>open('settings')} accessibilityRole="button" accessibilityLabel={t.settings} style={s.iconButton}><Icon name="sliders" size={18}/></Pressable>
    </View></View>
-   {phase==='home'&&<HomeIntro t={t} profile={profile} compact={compact} reducedMotion={prefs.reducedMotion}/>}
+   {phase==='home'&&<HomeIntro t={t} profile={profile} compact={compact}/>}
    {isRun&&<ScorePanel store={store} t={t} best={best} format={format} pulse={pulse} compact={compact}/>}
    {isRun&&<RunBrief store={store} t={t}/>}
    {phase==='over'&&<View style={[s.scoreArea,{paddingTop:compact?12:22}]}><Text style={[s.kicker,{color:'#e8c683'}]}>{newRecord?t.record:r.finishReason==='complete'?t.victory:t.finished}</Text><Text style={s.resultTitle}>{newRecord?t.recordTitle:r.finishReason==='complete'?t.victoryTitle:t.resultTitle}</Text><Text style={s.resultScore}>{format(r.score)}<Text style={s.resultUnit}> {t.points}</Text></Text></View>}

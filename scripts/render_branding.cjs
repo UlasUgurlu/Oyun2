@@ -1,3 +1,0 @@
-const fs=require('fs'),path=require('path');
-let sharp;try{sharp=require('sharp');}catch{sharp=require(process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES+'/sharp');}
-(async()=>{const dir=path.join(__dirname,'../assets');for(const [input,output,size]of [['icon.svg','icon.png',1024],['logo-mark.svg','logo-mark.png',512],['adaptive-icon.svg','adaptive-icon.png',1024],['logo-mark.svg','splash-mark.png',512],['logo-lockup.svg','logo-lockup.png',1320]]){await sharp(fs.readFileSync(path.join(dir,input))).resize({width:size}).png().toFile(path.join(dir,output));}console.log('Raster logo assets created');})().catch(e=>{console.error(e.message);process.exitCode=1});

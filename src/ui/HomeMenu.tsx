@@ -1,5 +1,5 @@
-import React,{useEffect,useRef,type ReactNode} from 'react';
-import {Animated,Pressable,StyleSheet,Text,View} from 'react-native';
+import React,{type ReactNode} from 'react';
+import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import type {Core,Mode} from '../game';
@@ -11,17 +11,16 @@ type Words=typeof DICTIONARIES.tr & ExpansionDictionary;
 const font={normal:'SpaceGrotesk_400Regular',medium:'SpaceGrotesk_500Medium',bold:'SpaceGrotesk_700Bold'};
 const cores=[{id:'balanced',icon:'hexagon',color:'#c4b5fd'},{id:'guardian',icon:'shield',color:'#72e5ef'},{id:'volatile',icon:'zap',color:'#ffca89'}] as const;
 
-export function HomeIntro({t,profile,compact,reducedMotion}:{t:Words;profile:Profile;compact:boolean;reducedMotion:boolean}){
- const rank=levelProgress(profile.xp),entry=useRef(new Animated.Value(reducedMotion?1:0)).current;
- useEffect(()=>{if(reducedMotion){entry.setValue(1);return;}const animation=Animated.timing(entry,{toValue:1,duration:420,useNativeDriver:true});animation.start();return()=>animation.stop();},[entry,reducedMotion]);
- return <Animated.View style={[styles.intro,compact&&{paddingTop:6,paddingBottom:5},{opacity:entry,transform:[{translateY:entry.interpolate({inputRange:[0,1],outputRange:[12,0]})}]}]}>
+export function HomeIntro({t,profile,compact}:{t:Words;profile:Profile;compact:boolean}){
+ const rank=levelProgress(profile.xp);
+ return <View collapsable={false} style={[styles.intro,{minHeight:compact?72:116},compact&&{paddingTop:6,paddingBottom:5}]}>
   <View style={styles.eyebrowRow}><View style={styles.dot}/><Text numberOfLines={1} style={styles.eyebrow}>{t.homeKicker}</Text></View>
   <View style={[styles.titleRow,compact&&{marginTop:5}]}><View style={{flex:1}}><Text numberOfLines={1} adjustsFontSizeToFit style={[styles.title,compact&&{fontSize:29,lineHeight:33}]}>{t.homeTitle}</Text>{!compact&&<Text style={styles.copy}>{t.homeCopy}</Text>}</View>
    <LinearGradient colors={['#293342','#172230']} style={[styles.level,compact&&{paddingVertical:4}]}><Text style={styles.levelLabel}>{t.level}</Text><Text style={[styles.levelNumber,compact&&{fontSize:18,lineHeight:20}]}>{rank.level.toString().padStart(2,'0')}</Text></LinearGradient>
   </View>
   <View style={[styles.progress,compact&&{marginTop:6}]}><View style={[styles.progressFill,{width:`${rank.progress*100}%`}]}/></View>
   {!compact&&<View style={styles.progressLabels}><Text style={styles.progressText}>{rank.current} / {rank.required} {t.xp}</Text><Text style={styles.progressText}>{t.phases} · {t.anomalies} · {t.missions}</Text></View>}
- </Animated.View>;
+ </View>;
 }
 
 export function MenuSceneOverlay({t,mode,core}:{t:Words;mode:Mode;core:Core}){
