@@ -138,7 +138,7 @@ function Bursts({runRef,tier}:Pick<WorldProps,'runRef'|'tier'>){
 function Driver({runRef,onFrame,onQuality,onReady,tier,reducedMotion}:WorldProps){
  const {camera,size}=useThree();const prevPhase=useRef(runRef.current.phase),wasShaking=useRef(false),ready=useRef(false),renderTime=useRef(0),samples=useRef(0),average=useRef(.0167),lastTierChange=useRef(0);
  useEffect(()=>{if(camera instanceof T.PerspectiveCamera){camera.fov=2*Math.atan(Math.tan(T.MathUtils.degToRad(19))/(size.width/size.height))*180/Math.PI;camera.updateProjectionMatrix();camera.lookAt(0,.1,0);}},[camera,size.width,size.height]);
- useFrame((_,delta)=>{const phase=runRef.current.phase,changed=prevPhase.current!==phase;prevPhase.current=phase;const dt=changed?0:delta;onFrame(dt);const r=runRef.current;
+ useFrame((_,delta)=>{const phase=runRef.current.phase,changed=prevPhase.current!==phase;prevPhase.current=phase;const dt=changed||!ready.current?0:delta;onFrame(dt);const r=runRef.current;
   if(!reducedMotion&&r.shake>0){camera.position.x=Math.sin(r.visualTime*57)*r.shake*.13;camera.position.y=6.5+Math.cos(r.visualTime*49)*r.shake*.1;camera.lookAt(0,.1,0);wasShaking.current=true;}
   else if(wasShaking.current){camera.position.set(0,6.5,8.7);camera.lookAt(0,.1,0);wasShaking.current=false;}
   if(phase==='playing'||phase==='home'){average.current=average.current*.96+Math.min(delta,.1)*.04;samples.current++;if(samples.current>120&&r.visualTime-lastTierChange.current>6){if(average.current>.025&&tier!=='low'){lastTierChange.current=r.visualTime;onQuality?.(tier==='high'?'medium':'low');}else if(phase==='home'&&average.current<.018&&tier==='medium'){lastTierChange.current=r.visualTime;onQuality?.('high');}}}

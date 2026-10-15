@@ -1,5 +1,8 @@
 """Launch and exercise the installed release APK on a real Android runtime."""
 import re
+import hashlib
+import json
+import struct
 import subprocess
 import sys
 import time
@@ -30,10 +33,21 @@ def ui():
     adb("shell", "uiautomator", "dump", "/sdcard/orbit-smoke.xml", timeout=30)
     document = adb("shell", "cat", "/sdcard/orbit-smoke.xml")
     (EVIDENCE / "window.xml").write_bytes(document)
-    return ET.fromstring(document)
+    root = ET.fromstring(document)
+    # Fresh Google APIs images can show a stock launcher ANR while their
+    # background services initialise. Dismiss only this identified system
+    # dialog; game errors still fail the process/log checks below.
+    if any(node.get("text") == "Pixel Launcher isn't responding" for node in root.iter("node")):
+        close = next(node for node in root.iter("node") if node.get("text") == "Close app")
+        adb("shell", "input", "tap", *center(close))
+        print("INFO: dismissed the emulator's Pixel Launcher ANR", flush=True)
+        launch()
+        time.sleep(0.5)
+        return ET.Element("hierarchy")
+    return root
 
 
-def find(label, enabled=False, timeout=25):
+def find(label, enabled=False, timeout=45):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         for node in ui().iter("node"):
@@ -56,6 +70,24 @@ def tap(label):
 
 def screenshot(name):
     (EVIDENCE / name).write_bytes(adb("exec-out", "screencap", "-p"))
+
+
+def rendered_game():
+    raw = adb("exec-out", "screencap")
+    width, height, pixel_format = struct.unpack("<III", raw[:12])
+    assert pixel_format == 1, "Expected an RGBA Android framebuffer"
+    pixels = memoryview(raw)[-width * height * 4:]
+    assert len(pixels) == width * height * 4
+    cyan = 0
+    # Check only the game scene; the cyan Phase button and score HUD lie
+    # outside this rectangle. This catches an empty GL surface after resize.
+    for y in range(int(height * .37), int(height * .77)):
+        for x in range(int(width * .03), int(width * .97)):
+            i = (y * width + x) * 4
+            if pixels[i] < 110 and pixels[i + 1] > 125 and pixels[i + 2] > 145:
+                cyan += 1
+    assert cyan > width * height * .0001, f"3D gameplay surface was empty: {cyan} cyan pixels"
+    print(f"PASS: native gameplay orbit rendered ({cyan} cyan pixels)", flush=True)
 
 
 def launch():
@@ -103,13 +135,17 @@ try:
     # position while idle and pause before asking UIAutomator for another tree.
     pause_position = center(find("Kayıtlar"))
     tap("AKIŞA BAŞLA")
-    time.sleep(0.7)
+    time.sleep(1.5)
     alive()
     screenshot("05-playing.png")
+    rendered_game()
     adb("shell", "input", "tap", *pause_position)
     find("Bir nefes.")
     screenshot("06-paused.png")
     tap("DEVAM ET")
+    time.sleep(0.7)
+    screenshot("08-live-render.png")
+    rendered_game()
     print("PASS: game start, pause and resume", flush=True)
     adb("shell", "input", "keyevent", "3")
     time.sleep(1)
@@ -125,8 +161,10 @@ try:
     time.sleep(10)
     alive()
     screenshot("07-relaunch.png")
+    (EVIDENCE / "validation-result.json").write_text(json.dumps({"package": PACKAGE, "apk_sha256": hashlib.sha256(Path(apk).read_bytes()).hexdigest(), "upgrade": True, "ready_menu": True, "native_3d": True, "compact_menu": True, "language": True, "play_pause_resume": True, "background_recovery": True, "cold_relaunches": 2}, indent=2))
     print("PASS: repeated cold launches remain alive", flush=True)
 finally:
+    screenshot("last-screen.png")
     adb("shell", "wm", "size", "reset", check=False)
     adb("shell", "wm", "density", "reset", check=False)
     log = adb("logcat", "-d", "-v", "threadtime", check=False)

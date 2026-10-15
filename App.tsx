@@ -152,7 +152,7 @@ function Game(){
    {isRun&&<ScorePanel store={store} t={t} best={best} format={format} pulse={pulse} compact={compact}/>}
    {isRun&&<RunBrief store={store} t={t}/>}
    {phase==='over'&&<View style={[s.scoreArea,{paddingTop:compact?12:22}]}><Text style={[s.kicker,{color:'#e8c683'}]}>{newRecord?t.record:r.finishReason==='complete'?t.victory:t.finished}</Text><Text style={s.resultTitle}>{newRecord?t.recordTitle:r.finishReason==='complete'?t.victoryTitle:t.resultTitle}</Text><Text style={s.resultScore}>{format(r.score)}<Text style={s.resultUnit}> {t.points}</Text></Text></View>}
-   <View style={[s.sceneWrap,compact&&{minHeight:185},phase==='home'&&[extra.homeScene,{minHeight:height<610?100:compact?112:185}]]}>
+   <View collapsable={false} style={[s.sceneWrap,compact&&{minHeight:185},phase==='home'&&[extra.homeScene,{minHeight:height<610?100:compact?112:185}]]}>
     <SceneBoundary resetKey={sceneEpoch} onFailure={onSceneFailure} fallback={<CompatibleScene {...sceneProps}/>}><Scene key={sceneEpoch} {...sceneProps}/></SceneBoundary>
     {phase==='home'&&<MenuSceneOverlay t={t} mode={mode} core={core}/>}
     {isRun&&<Pressable {...touchHandlers(tap)} accessibilityRole="button" accessibilityLabel={t.switchLane} style={StyleSheet.absoluteFill}/>}

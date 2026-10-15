@@ -9,6 +9,7 @@
 - Tur başına mini görev, tamamlanma bonusu, XP ve kalıcı seviye ilerlemesi eklendi. Eski rekorlar korunur; Anomali rekoru ayrıca kaydedilir.
 - Faz ve anomali uyarısı için iki özgün stereo efekt eklendi. Yeni metinler dört dile çevrildi.
 - Android sürüm kodu 3 yapıldı. Önceki açılış düzeltmesi ve aynı anahtarla güncelleme desteği korunur.
+- 3B sahnenin yerel kapsayıcısı ekranlar arasında korunur; sahne hazır olmadan fizik ilerlemez. Menüden oyuna geçişte GL yüzeyinin yeniden oluşmasını önler.
 - Test kapsamı 30 oyun/kayıt testine genişletildi; tarayıcıda gerçek 3B çizim, üç ekran boyutu ve normal girişlerle anomali döngüsü kontrolü eklendi.
 
 # 1.2.1
