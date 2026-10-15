@@ -7,7 +7,7 @@ permissions:
   actions: read
   contents: read
 concurrency:
-  group: publish-orbit-tide-v1.2.1
+  group: publish-orbit-tide-v1.3.0
   cancel-in-progress: false
 jobs:
   verify:
@@ -18,22 +18,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/UlasUgurlu/Oyun2/actions/runs/38601718529 > run.json
-          gh api repos/UlasUgurlu/Oyun2/actions/runs/38601718529/jobs > jobs.json
+          gh api repos/UlasUgurlu/Oyun2/actions/runs/38662986742 > run.json
+          gh api repos/UlasUgurlu/Oyun2/actions/runs/38662986742/jobs > jobs.json
           python - <<'PY'
           import json
           from pathlib import Path
           run = json.loads(Path('run.json').read_text())
-          assert run['head_sha'] == 'd8c512e7401f27247d80b9bbc34db3ff1890847b'
+          assert run['head_sha'] == '9eca31bc91c31feb802acd8f9c51edc3fba1d060'
           assert run['conclusion'] == 'success' and run['status'] == 'completed'
           jobs = json.loads(Path('jobs.json').read_text())['jobs']
           assert any(s['name'] == 'Test release APK on Android 15' and s['conclusion'] == 'success' for j in jobs for s in j['steps'])
-          print('Exact source commit and Android launch test verified.')
+          assert any(s['name'] == 'Test responsive 3D menu and new mechanics in Chromium' and s['conclusion'] == 'success' for j in jobs for s in j['steps'])
+          print('Exact source commit, WebGL and Android runtime tests verified.')
           PY
       - name: Download only the tested APK
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 38601718529 --name orbit-tide-1.2.1-apk --repo UlasUgurlu/Oyun2 --dir delivery
+        run: gh run download 38662986742 --name orbit-tide-1.3.0-apk --repo UlasUgurlu/Oyun2 --dir delivery
       - name: Check exact APK identity
         working-directory: delivery
         run: |
@@ -41,12 +42,12 @@ jobs:
           python - <<'PY'
           import hashlib, json, zipfile
           from pathlib import Path
-          apk = Path('Orbit-Tide-1.2.1.apk')
-          assert apk.stat().st_size == 24044141
-          assert hashlib.sha256(apk.read_bytes()).hexdigest() == 'cd2a82c7a54fee975cd1f1be5368240e96a9cf613c34adf581a79f37734b3100'
+          apk = Path('Orbit-Tide-1.3.0.apk')
+          assert apk.stat().st_size == 24322521
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == 'dcfe686d63d9825c6cc134c187777f5ed96cff89ff7c67eaa76c5361e5f7ccae'
           info = json.loads(Path('build-info.json').read_text())
-          assert info['commit'] == 'd8c512e7401f27247d80b9bbc34db3ff1890847b'
-          assert info['version'] == '1.2.1' and info['sha256'] == 'cd2a82c7a54fee975cd1f1be5368240e96a9cf613c34adf581a79f37734b3100'
+          assert info['commit'] == '9eca31bc91c31feb802acd8f9c51edc3fba1d060'
+          assert info['version'] == '1.3.0' and info['sha256'] == 'dcfe686d63d9825c6cc134c187777f5ed96cff89ff7c67eaa76c5361e5f7ccae'
           with zipfile.ZipFile(apk) as z:
               assert z.testzip() is None
               assert 'assets/index.android.bundle' in z.namelist()
@@ -55,7 +56,7 @@ jobs:
       - name: Stage the verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-ready-orbit-1.2.1
+          name: release-ready-orbit-1.3.0
           path: delivery/
           retention-days: 1
           compression-level: 0
@@ -68,27 +69,29 @@ jobs:
       actions: read
       contents: write
     steps:
-      - name: Publish exact verified APK as version 1.2.1
+      - name: Publish exact verified APK as version 1.3.0
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download "$GITHUB_RUN_ID" --name release-ready-orbit-1.2.1 --repo UlasUgurlu/Oyun2 --dir delivery
-          echo 'cd2a82c7a54fee975cd1f1be5368240e96a9cf613c34adf581a79f37734b3100  delivery/Orbit-Tide-1.2.1.apk' | sha256sum -c
+          gh run download "$GITHUB_RUN_ID" --name release-ready-orbit-1.3.0 --repo UlasUgurlu/Oyun2 --dir delivery
+          echo 'dcfe686d63d9825c6cc134c187777f5ed96cff89ff7c67eaa76c5361e5f7ccae  delivery/Orbit-Tide-1.3.0.apk' | sha256sum -c
           cat > release-notes.md <<'NOTES'
-          Orbit Tide 1.2.1 — Android açılış düzeltmesi
+          Orbit Tide 1.3.0 — Yarık Sezonu
 
-          3B motorunun Android'de desteklenmeyen Node.js giriş dosyası yerine ESM modülü kullanılıyor.
-          ARM64 Android için Orbit-Tide-1.2.1.apk dosyasını indirin. Expo Go gerekmez.
+          Yeni 3B menü, uzay sisi ve enerji halkaları; Anomali modu, kayan kapılar, Faz gücü, üç çekirdek ve XP/seviye ilerlemesi.
+          Türkçe, English, Deutsch ve Español arayüz. Faz ve anomali için yeni stereo sesler.
+          Menüden oyuna geçişte 3B yüzey korunur. Üç ekran boyutunda WebGL çizimi, üç anomali döngüsü ve 30 oyun/kayıt testi doğrulandı.
+          ARM64 Android için Orbit-Tide-1.3.0.apk dosyasını indirin. Expo Go gerekmez.
           Android 15 emülatöründe eski sürüm üzerine kurulum, ana menü, dil seçimi, oyun başlangıcı, duraklatma, arka plandan dönme ve yeniden açılış sınandı.
           NOTES
-          gh release create v1.2.1 delivery/Orbit-Tide-1.2.1.apk delivery/sha256.txt \
-            --repo UlasUgurlu/Oyun2 --target d8c512e7401f27247d80b9bbc34db3ff1890847b \
-            --title 'Orbit Tide 1.2.1 — Açılış düzeltmesi' --notes-file release-notes.md
+          gh release create v1.3.0 delivery/Orbit-Tide-1.3.0.apk delivery/sha256.txt \
+            --repo UlasUgurlu/Oyun2 --target 9eca31bc91c31feb802acd8f9c51edc3fba1d060 \
+            --title 'Orbit Tide 1.3.0 — Yarık Sezonu' --notes-file release-notes.md
       - name: Check anonymous public download
         run: |
           python - <<'PY'
           import hashlib, time, urllib.request
-          url = 'https://github.com/UlasUgurlu/Oyun2/releases/download/v1.2.1/Orbit-Tide-1.2.1.apk'
+          url = 'https://github.com/UlasUgurlu/Oyun2/releases/download/v1.3.0/Orbit-Tide-1.3.0.apk'
           for attempt in range(3):
               try:
                   digest = hashlib.sha256()
@@ -98,8 +101,8 @@ jobs:
                       while chunk := response.read(1024 * 1024):
                           digest.update(chunk)
                           size += len(chunk)
-                  assert size == 24044141
-                  assert digest.hexdigest() == 'cd2a82c7a54fee975cd1f1be5368240e96a9cf613c34adf581a79f37734b3100'
+                  assert size == 24322521
+                  assert digest.hexdigest() == 'dcfe686d63d9825c6cc134c187777f5ed96cff89ff7c67eaa76c5361e5f7ccae'
                   print('Public APK download verified: ' + url)
                   break
               except Exception:
@@ -107,3 +110,4 @@ jobs:
                       raise
                   time.sleep(5)
           PY
+
