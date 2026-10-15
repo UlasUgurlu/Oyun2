@@ -3,6 +3,7 @@ import re
 import hashlib
 import json
 import struct
+import zlib
 import subprocess
 import sys
 import time
@@ -72,12 +73,21 @@ def screenshot(name):
     (EVIDENCE / name).write_bytes(adb("exec-out", "screencap", "-p"))
 
 
-def rendered_game():
+def rendered_game(name, stop_action):
     raw = adb("exec-out", "screencap")
+    # Freeze gameplay immediately after the frame is captured. Inspecting a
+    # large software-rendered framebuffer must not leave the ship unattended.
+    stop_action()
     width, height, pixel_format = struct.unpack("<III", raw[:12])
     assert pixel_format == 1, "Expected an RGBA Android framebuffer"
     pixels = memoryview(raw)[-width * height * 4:]
     assert len(pixels) == width * height * 4
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
+    rows = b"".join(b"\0" + pixels[y * width * 4:(y + 1) * width * 4].tobytes() for y in range(height))
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+    png += chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+    (EVIDENCE / name).write_bytes(png)
     cyan = 0
     # Check only the game scene; the cyan Phase button and score HUD lie
     # outside this rectangle. This catches an empty GL surface after resize.
@@ -135,19 +145,15 @@ try:
     # position while idle and pause before asking UIAutomator for another tree.
     pause_position = center(find("Kayıtlar"))
     tap("AKIŞA BAŞLA")
-    time.sleep(1.5)
+    time.sleep(1)
     alive()
-    screenshot("05-playing.png")
-    rendered_game()
-    adb("shell", "input", "tap", *pause_position)
+    rendered_game("05-playing.png", lambda: adb("shell", "input", "tap", *pause_position))
     find("Bir nefes.")
     screenshot("06-paused.png")
     tap("DEVAM ET")
-    time.sleep(0.7)
-    screenshot("08-live-render.png")
-    rendered_game()
+    time.sleep(0.6)
+    rendered_game("08-live-render.png", lambda: adb("shell", "input", "keyevent", "3"))
     print("PASS: game start, pause and resume", flush=True)
-    adb("shell", "input", "keyevent", "3")
     time.sleep(1)
     launch()
     find("Bir nefes.")
