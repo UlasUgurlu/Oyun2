@@ -1,0 +1,70 @@
+name: Verify exact Orbit Tide 1.3.0 APK
+on:
+  push:
+    branches: [apk-download]
+    paths: [.github/workflows/verify-apk-1.3.0.yml, scripts/android_smoke.py]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  native-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out only the test harness
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch and identify exact built APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 38655852958 --name orbit-tide-1.3.0-apk --repo UlasUgurlu/Oyun2 --dir delivery
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          apk = Path('delivery/Orbit-Tide-1.3.0.apk')
+          info = json.loads(Path('delivery/build-info.json').read_text())
+          assert apk.stat().st_size == 24282145
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == '88899d553f26f248574c7f55d9c7600649fda87614d4f21c9fc73f45e524c004'
+          assert info['commit'] == 'b4cc84644bd3926ae0efeffd3f509aa75fde7875'
+          assert info['version'] == '1.3.0'
+          PY
+          mkdir -p previous
+          curl --fail --location --retry 2 --output previous/Orbit-Tide-1.2.1.apk https://github.com/UlasUgurlu/Oyun2/releases/download/v1.2.1/Orbit-Tide-1.2.1.apk
+          echo 'cd2a82c7a54fee975cd1f1be5368240e96a9cf613c34adf581a79f37734b3100  previous/Orbit-Tide-1.2.1.apk' | sha256sum -c
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test exact release APK on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          ram-size: 2048M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: python scripts/android_smoke.py delivery/Orbit-Tide-1.3.0.apk previous/Orbit-Tide-1.2.1.apk
+      - name: Preserve Android evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-tide-1.3.0-android-verified
+          path: smoke-evidence/
+          retention-days: 14
+      - name: Preserve tested APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-tide-1.3.0-verified-apk
+          path: delivery/
+          retention-days: 30
+          compression-level: 0
