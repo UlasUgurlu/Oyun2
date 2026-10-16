@@ -1,0 +1,104 @@
+name: Publish verified unsigned Orbit Tide IPA
+on:
+  push:
+    branches: [apk-download]
+    paths: [.github/workflows/publish-ipa.yml]
+permissions:
+  actions: read
+  contents: read
+concurrency:
+  group: publish-orbit-tide-unsigned-ipa-v1.3.0
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require successful iPhone release compilation and verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/UlasUgurlu/Oyun2/actions/runs/38835202412 > run.json
+          gh api repos/UlasUgurlu/Oyun2/actions/runs/38835202412/jobs > jobs.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          run = json.loads(Path('run.json').read_text())
+          assert run['head_sha'] == 'ea1fc67507292fd848029e3f5e19c1daa3213b1c'
+          assert run['head_branch'] == 'ios-ipa'
+          assert run['status'] == 'completed' and run['conclusion'] == 'success'
+          jobs = json.loads(Path('jobs.json').read_text())['jobs']
+          required = ['Install exact dependencies and test game', 'Compile unsigned release for physical iPhones', 'Verify physical iPhone binary and package unsigned IPA']
+          assert all(any(s['name'] == name and s['conclusion'] == 'success' for j in jobs for s in j['steps']) for name in required)
+          PY
+      - name: Download exact unsigned iPhone artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 38835202412 --name orbit-tide-1.3.0-unsigned-ipa --repo UlasUgurlu/Oyun2 --dir delivery
+      - name: Check unsigned IPA identity and embedded game
+        working-directory: delivery
+        run: |
+          sha256sum -c ipa-sha256.txt
+          python - <<'PY'
+          import hashlib, json, plistlib, zipfile
+          from pathlib import Path
+          ipa = Path('Orbit-Tide-1.3.0-unsigned.ipa')
+          assert ipa.stat().st_size == 11050636
+          assert hashlib.sha256(ipa.read_bytes()).hexdigest() == '3615b28c1d71451b47a8cf004349539f8e3efcb7a660bb11f4e30bb062b6fecf'
+          info = json.loads(Path('ios-build-info.json').read_text())
+          assert info['commit'] == 'ea1fc67507292fd848029e3f5e19c1daa3213b1c' and info['version'] == '1.3.0'
+          assert info['signed'] is False and info['device_runtime_tested'] is False
+          assert info['platform'] == 'iPhoneOS' and info['architecture'] == 'arm64'
+          assert info['sha256'] == '3615b28c1d71451b47a8cf004349539f8e3efcb7a660bb11f4e30bb062b6fecf'
+          assert 'UNSIGNED / IMZASIZ' in Path('IPA-README.txt').read_text()
+          with zipfile.ZipFile(ipa) as z:
+              assert z.testzip() is None
+              prefix = 'Payload/OrbitTide.app/'
+              p = plistlib.loads(z.read(prefix + 'Info.plist'))
+              assert p['CFBundleIdentifier'] == 'com.ulasugurlu.orbittide'
+              assert p['CFBundleSupportedPlatforms'] == ['iPhoneOS']
+              assert len(z.read(prefix + 'main.jsbundle')) > 100000
+          assert {p.name for p in Path('.').iterdir()} == {'Orbit-Tide-1.3.0-unsigned.ipa','IPA-README.txt','ipa-sha256.txt','ios-build-info.json'}
+          PY
+      - name: Stage verified unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ready-orbit-unsigned-ipa-1.3.0
+          path: delivery/
+          retention-days: 1
+          compression-level: 0
+  publish:
+    needs: verify
+    if: github.ref == 'refs/heads/apk-download'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Add exact unsigned IPA to existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "$GITHUB_RUN_ID" --name release-ready-orbit-unsigned-ipa-1.3.0 --repo UlasUgurlu/Oyun2 --dir delivery
+          echo '3615b28c1d71451b47a8cf004349539f8e3efcb7a660bb11f4e30bb062b6fecf  delivery/Orbit-Tide-1.3.0-unsigned.ipa' | sha256sum -c
+          gh release upload v1.3.0 \
+            delivery/Orbit-Tide-1.3.0-unsigned.ipa \
+            delivery/IPA-README.txt \
+            delivery/ipa-sha256.txt \
+            delivery/ios-build-info.json \
+            --repo UlasUgurlu/Oyun2
+      - name: Verify anonymous IPA download
+        run: |
+          python - <<'PY'
+          import hashlib, urllib.request
+          url = 'https://github.com/UlasUgurlu/Oyun2/releases/download/v1.3.0/Orbit-Tide-1.3.0-unsigned.ipa'
+          digest, size = hashlib.sha256(), 0
+          with urllib.request.urlopen(url, timeout=90) as response:
+              assert response.status == 200
+              while chunk := response.read(1024 * 1024):
+                  digest.update(chunk)
+                  size += len(chunk)
+          assert size == 11050636 and digest.hexdigest() == '3615b28c1d71451b47a8cf004349539f8e3efcb7a660bb11f4e30bb062b6fecf'
+          print('PASS: anonymous unsigned IPA download verified: ' + url)
+          PY
