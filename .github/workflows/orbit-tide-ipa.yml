@@ -1,0 +1,134 @@
+name: Build unsigned Orbit Tide iPhone IPA
+
+on:
+  push:
+    branches: [ios-ipa]
+    paths:
+      - .github/workflows/orbit-tide-ipa.yml
+      - scripts/package_ios.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orbit-tide-unsigned-ipa
+  cancel-in-progress: false
+
+jobs:
+  iphone-ipa:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=6144
+      COCOAPODS_DISABLE_STATS: 'true'
+    steps:
+      - name: Check out Orbit Tide
+        uses: actions/checkout@v4
+
+      - name: Restore exact dependency lock
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, gzip, json
+          chunks = sorted(Path('.build/lock').glob('*.b64'))
+          assert chunks, 'Dependency lock missing'
+          lock = json.loads(gzip.decompress(base64.b64decode(''.join(p.read_text() for p in chunks))))
+          version = json.loads(Path('package.json').read_text())['version']
+          lock['version'] = lock['packages']['']['version'] = version
+          Path('package-lock.json').write_text(json.dumps(lock, indent=2) + '\n')
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Inspect Apple build tools
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+          pod --version
+
+      - name: Install exact dependencies and test game
+        run: |
+          npm ci --include=dev --no-audit --no-fund
+          npm run typecheck
+          npm test
+
+      - name: Generate original logo and stereo audio
+        run: |
+          python3 -m venv .build/asset-env
+          .build/asset-env/bin/pip install numpy==2.3.5 fonttools==4.61.1
+          npm install --prefix .build/asset-tools --no-audit --no-fund sharp@0.35.5
+          if ! command -v ffmpeg >/dev/null; then
+            brew install ffmpeg
+          fi
+          .build/asset-env/bin/python scripts/create_branding.py
+          NODE_PATH="$PWD/.build/asset-tools/node_modules" node scripts/render_branding.cjs
+          .build/asset-env/bin/python scripts/generate_audio.py
+
+      - name: Verify iOS JavaScript uses the Hermes-compatible Three entry
+        run: |
+          npx expo export:embed --platform ios --dev false --entry-file node_modules/expo/AppEntry.js --bundle-output .build/ios-preflight.js --sourcemap-output .build/ios-preflight.map
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          sources = json.loads(Path('.build/ios-preflight.map').read_text())['sources']
+          assert any(s.endswith('/three/build/three.module.js') for s in sources)
+          assert not any(s.endswith('/three/build/three.cjs') for s in sources)
+          print('PASS: iOS Metro uses Three ESM and embeds the game.')
+          PY
+
+      - name: Generate iOS project and install native dependencies
+        run: |
+          npx expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+
+      - name: Compile unsigned release for physical iPhones
+        run: |
+          export SOURCEMAP_FILE="$PWD/.build/ios-main.map"
+          if ! xcodebuild \
+            -workspace ios/OrbitTide.xcworkspace \
+            -scheme OrbitTide \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath .build/ios-derived \
+            -jobs 3 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            build > .build/xcode-device.log 2>&1; then
+            tail -n 180 .build/xcode-device.log
+            exit 1
+          fi
+          tail -n 12 .build/xcode-device.log
+
+      - name: Verify physical iPhone binary and package unsigned IPA
+        run: python3 scripts/package_ios.py .build/ios-derived/Build/Products/Release-iphoneos/OrbitTide.app
+
+      - name: Upload unsigned IPA and installation requirements
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-tide-1.3.0-unsigned-ipa
+          path: delivery-ios/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Preserve Apple build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-tide-1.3.0-ios-build-evidence
+          path: |
+            .build/xcode-device.log
+            .build/ios-main.map
+            ios/Podfile.lock
+          retention-days: 7
